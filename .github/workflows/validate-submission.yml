@@ -1,0 +1,33 @@
+name: Validate capstone submission
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure PR only touches the project listing
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "Changed files:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -v -E '^PROJECTS\.md$' | grep -q .; then
+            echo "::error::This PR touches files other than PROJECTS.md. Capstone submissions should only add a row to PROJECTS.md. Your project's code stays in your own fork."
+            exit 1
+          fi
+
+      - name: Check that a row was actually added
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          ADDED=$(git diff "origin/${{ github.base_ref }}...HEAD" -- PROJECTS.md | grep -c '^+|' || true)
+          if [ "$ADDED" -lt 1 ]; then
+            echo "::error::No new row detected in PROJECTS.md. Add a row linking to your fork."
+            exit 1
+          fi
